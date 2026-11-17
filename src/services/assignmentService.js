@@ -72,10 +72,7 @@ async function getAllAssignments(options = {}) {
   let assignments = await readData();
 
   // Search across title and description (case-insensitive partial match)
-  if (search !== undefined) {
-    if (typeof search !== "string" || !search.trim()) {
-      throw new ApiError(400, "Search query cannot be empty");
-    }
+  if (typeof search === "string" && search.trim()) {
     const term = search.trim().toLowerCase();
     assignments = assignments.filter((item) => {
       const matchTitle = item.title && item.title.toLowerCase().includes(term);
@@ -84,27 +81,18 @@ async function getAllAssignments(options = {}) {
     });
   }
 
-  // Filter by status
-  if (status !== undefined) {
-    if (!Object.values(ASSIGNMENT_STATUS).includes(status)) {
-      throw new ApiError(400, "Invalid assignment status");
-    }
+  // Filter by status (safeguard: match valid status enum)
+  if (status && Object.values(ASSIGNMENT_STATUS).includes(status)) {
     assignments = assignments.filter((item) => item.status === status);
   }
 
-  // Filter by priority
-  if (priority !== undefined) {
-    if (!Object.values(ASSIGNMENT_PRIORITY).includes(priority)) {
-      throw new ApiError(400, "Invalid assignment priority");
-    }
+  // Filter by priority (safeguard: match valid priority enum)
+  if (priority && Object.values(ASSIGNMENT_PRIORITY).includes(priority)) {
     assignments = assignments.filter((item) => item.priority === priority);
   }
 
   // Filter by subject (case-insensitive exact match)
-  if (subject !== undefined) {
-    if (typeof subject !== "string" || !subject.trim()) {
-      throw new ApiError(400, "Subject query cannot be empty");
-    }
+  if (typeof subject === "string" && subject.trim()) {
     const subj = subject.trim().toLowerCase();
     assignments = assignments.filter(
       (item) => item.subject && item.subject.toLowerCase() === subj

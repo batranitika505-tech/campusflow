@@ -60,13 +60,35 @@ const validateQuery = validateRequest({
   },
 });
 
+const validateCreateAssignment = validateRequest({
+  body: {
+    title: { required: true, type: "string" },
+    subject: { required: true, type: "string" },
+    dueDate: { required: true, type: "string" },
+    description: { type: "string" },
+    priority: { type: "string" },
+    status: { type: "string" },
+  },
+});
+
+const validateUpdateAssignment = validateRequest({
+  body: {
+    title: { type: "string" },
+    subject: { type: "string" },
+    dueDate: { type: "string" },
+    description: { type: "string" },
+    priority: { type: "string" },
+    status: { type: "string" },
+  },
+});
+
 router.get("/", validateQuery, assignmentController.getAllAssignments);
 router.get("/upcoming", assignmentController.getUpcomingAssignments);
 router.get("/overdue", assignmentController.getOverdueAssignments);
 router.get("/stats", assignmentController.getAssignmentStats);
 router.get("/:id", assignmentController.getAssignmentById);
-router.post("/", assignmentController.createAssignment);
-router.patch("/:id", assignmentController.updateAssignment);
+router.post("/", validateCreateAssignment, assignmentController.createAssignment);
+router.patch("/:id", validateUpdateAssignment, assignmentController.updateAssignment);
 router.delete("/:id", assignmentController.deleteAssignment);
 
 module.exports = router;

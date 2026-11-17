@@ -770,4 +770,240 @@ describe("CampusFlow API Integration Tests (Phase 2 & Phase 3)", () => {
     assert.strictEqual(body.success, false);
     assert(body.message.includes("Route not found"));
   });
+
+  // 17. validateRequest body schema validation on POST and PATCH
+  test("17. validateRequest body schema validation on POST and PATCH", async () => {
+    // Missing required fields on POST
+    // Missing all required fields
+    let res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // Missing subject
+    res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Test Assignment",
+        dueDate: "2026-12-01",
+      }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // Missing dueDate
+    res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Test Assignment",
+        subject: "Physics",
+      }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // Missing title
+    res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subject: "Physics",
+        dueDate: "2026-12-01",
+      }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // Invalid body types on POST
+    // Non-string title
+    res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: 12345,
+        subject: "Physics",
+        dueDate: "2026-12-01",
+      }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // Non-string subject
+    res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Physics Lab",
+        subject: ["Physics"],
+        dueDate: "2026-12-01",
+      }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // Non-string dueDate
+    res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Physics Lab",
+        subject: "Physics",
+        dueDate: 20261201,
+      }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // Non-string description
+    res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Physics Lab",
+        subject: "Physics",
+        dueDate: "2026-12-01",
+        description: 42,
+      }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // Non-string priority
+    res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Physics Lab",
+        subject: "Physics",
+        dueDate: "2026-12-01",
+        priority: 99,
+      }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // Non-string status
+    res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Physics Lab",
+        subject: "Physics",
+        dueDate: "2026-12-01",
+        status: false,
+      }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // Create a valid assignment to test PATCH validation
+    res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Validation Target",
+        subject: "Chemistry",
+        dueDate: "2026-12-20",
+        description: "Initial description",
+        priority: "low",
+        status: "pending",
+      }),
+    });
+    assert.strictEqual(res.status, 201);
+    let body = await res.json();
+    const targetId = body.data.id;
+
+    try {
+      // Invalid body types on PATCH
+      // Non-string title
+      res = await fetch(`${BASE_URL}/api/assignments/${targetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: 987 }),
+      });
+      assert.strictEqual(res.status, 400);
+
+      // Non-string subject
+      res = await fetch(`${BASE_URL}/api/assignments/${targetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject: true }),
+      });
+      assert.strictEqual(res.status, 400);
+
+      // Non-string dueDate
+      res = await fetch(`${BASE_URL}/api/assignments/${targetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dueDate: { date: "2026-12-25" } }),
+      });
+      assert.strictEqual(res.status, 400);
+
+      // Non-string description
+      res = await fetch(`${BASE_URL}/api/assignments/${targetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: 100 }),
+      });
+      assert.strictEqual(res.status, 400);
+
+      // Non-string priority
+      res = await fetch(`${BASE_URL}/api/assignments/${targetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priority: 1 }),
+      });
+      assert.strictEqual(res.status, 400);
+
+      // Non-string status
+      res = await fetch(`${BASE_URL}/api/assignments/${targetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: 2 }),
+      });
+      assert.strictEqual(res.status, 400);
+
+      // Valid partial updates on PATCH
+      // 1. Partial update: title only
+      res = await fetch(`${BASE_URL}/api/assignments/${targetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Updated Chemistry Title" }),
+      });
+      assert.strictEqual(res.status, 200);
+      body = await res.json();
+      assert.strictEqual(body.data.title, "Updated Chemistry Title");
+      assert.strictEqual(body.data.subject, "Chemistry");
+
+      // 2. Partial update: status only
+      res = await fetch(`${BASE_URL}/api/assignments/${targetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "in-progress" }),
+      });
+      assert.strictEqual(res.status, 200);
+      body = await res.json();
+      assert.strictEqual(body.data.status, "in-progress");
+
+      // 3. Partial update: priority only
+      res = await fetch(`${BASE_URL}/api/assignments/${targetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priority: "high" }),
+      });
+      assert.strictEqual(res.status, 200);
+      body = await res.json();
+      assert.strictEqual(body.data.priority, "high");
+
+      // 4. Partial update: dueDate only
+      res = await fetch(`${BASE_URL}/api/assignments/${targetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dueDate: "2026-12-25" }),
+      });
+      assert.strictEqual(res.status, 200);
+      body = await res.json();
+      assert.strictEqual(body.data.dueDate, "2026-12-25");
+    } finally {
+      // Clean up created test assignment
+      await fetch(`${BASE_URL}/api/assignments/${targetId}`, {
+        method: "DELETE",
+      });
+    }
+  });
 });
