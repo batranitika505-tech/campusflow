@@ -1,4 +1,3 @@
-
 const express = require("express");
 const path = require("node:path");
 
@@ -9,6 +8,7 @@ const {
 } = require("express-api-toolkit");
 
 const notFound = require("./middleware/notFound");
+const assignmentRoutes = require("./routes/assignmentRoutes");
 
 const app = express();
 
@@ -30,6 +30,9 @@ app.get("/api/health", (req, res) => {
     requestId: req.requestId,
   });
 });
+
+// API routes
+app.use("/api/assignments", assignmentRoutes);
 
 // 404 handling
 app.use(notFound);
