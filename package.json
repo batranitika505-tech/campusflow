@@ -4,7 +4,7 @@
   "description": "A student assignment and deadline management application built with Express and express-api-toolkit",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",
