@@ -77,6 +77,16 @@
   const toastIconError = document.getElementById("toast-icon-error");
   const toastCloseBtn = document.getElementById("toast-close-btn");
 
+  // Deadline Management DOM Elements (Phase 4.6)
+  const overdueContainer = document.getElementById("overdue-list-container");
+  const deadlinesUpcomingContainer = document.getElementById("deadlines-upcoming-list-container");
+  const overdueCountBadge = document.getElementById("overdue-count-badge");
+  const upcomingCountBadge = document.getElementById("upcoming-count-badge");
+  const deadlinesError = document.getElementById("deadlines-error-state");
+  const deadlinesErrorText = document.getElementById("deadlines-error-text");
+  const deadlinesRetryBtn = document.getElementById("deadlines-retry-btn");
+  const refreshDeadlinesBtn = document.getElementById("refresh-deadlines-btn");
+
   // Active mutation state
   let pendingDeleteId = null;
   let toastTimer = null;
@@ -95,7 +105,7 @@
   };
 
   // Valid route section names
-  const VALID_SECTIONS = ["dashboard", "assignments", "subjects"];
+  const VALID_SECTIONS = ["dashboard", "assignments", "deadlines", "subjects"];
   const DEFAULT_SECTION = "dashboard";
 
   /**
@@ -1076,6 +1086,7 @@
       await Promise.all([
         loadAssignmentsData(),
         loadDashboardData(),
+        loadDeadlinesData(),
         loadSubjectsOptions(),
       ]);
     } catch (err) {
@@ -1183,6 +1194,7 @@
       await Promise.all([
         loadAssignmentsData(),
         loadDashboardData(),
+        loadDeadlinesData(),
         loadSubjectsOptions(),
       ]);
     } catch (err) {
@@ -1191,6 +1203,320 @@
     } finally {
       deleteModalConfirmBtn.disabled = false;
       deleteModalConfirmBtn.innerHTML = originalBtnText;
+    }
+  }
+
+  /* ==========================================================================
+     Deadline Management (Phase 4.6)
+     ========================================================================== */
+
+  /**
+   * Render loading skeleton state for deadline lists
+   */
+  function renderDeadlinesLoading() {
+    if (deadlinesError) deadlinesError.hidden = true;
+
+    if (overdueCountBadge) {
+      overdueCountBadge.textContent = "Loading...";
+      overdueCountBadge.className = "badge badge-priority-low";
+    }
+
+    if (upcomingCountBadge) {
+      upcomingCountBadge.textContent = "Loading...";
+      upcomingCountBadge.className = "badge badge-priority-low";
+    }
+
+    if (overdueContainer) {
+      overdueContainer.innerHTML = `
+        <div class="skeleton skeleton-item" style="height: 80px; border-radius: var(--radius-lg);"></div>
+        <div class="skeleton skeleton-item" style="height: 80px; border-radius: var(--radius-lg);"></div>
+      `;
+    }
+
+    if (deadlinesUpcomingContainer) {
+      deadlinesUpcomingContainer.innerHTML = `
+        <div class="skeleton skeleton-item" style="height: 80px; border-radius: var(--radius-lg);"></div>
+        <div class="skeleton skeleton-item" style="height: 80px; border-radius: var(--radius-lg);"></div>
+      `;
+    }
+  }
+
+  /**
+   * Render error state for deadline management section
+   * @param {string} message
+   */
+  function renderDeadlinesError(message = "Unable to connect to the CampusFlow API.") {
+    if (deadlinesError) {
+      deadlinesError.hidden = false;
+      if (deadlinesErrorText) {
+        deadlinesErrorText.textContent = message;
+      }
+    }
+
+    if (overdueCountBadge) {
+      overdueCountBadge.textContent = "Error";
+      overdueCountBadge.className = "badge badge-priority-low";
+    }
+
+    if (upcomingCountBadge) {
+      upcomingCountBadge.textContent = "Error";
+      upcomingCountBadge.className = "badge badge-priority-low";
+    }
+
+    if (overdueContainer) {
+      overdueContainer.innerHTML = `
+        <div class="empty-state" style="padding: var(--space-6);">
+          <p class="empty-state-title">Data unavailable</p>
+          <p class="empty-state-desc">Please retry using the button above.</p>
+        </div>
+      `;
+    }
+
+    if (deadlinesUpcomingContainer) {
+      deadlinesUpcomingContainer.innerHTML = `
+        <div class="empty-state" style="padding: var(--space-6);">
+          <p class="empty-state-title">Data unavailable</p>
+          <p class="empty-state-desc">Please retry using the button above.</p>
+        </div>
+      `;
+    }
+  }
+
+  /**
+   * Render list of overdue assignments
+   * @param {Array} overdueList
+   */
+  function renderOverdueList(overdueList) {
+    if (!overdueContainer) return;
+
+    const count = Array.isArray(overdueList) ? overdueList.length : 0;
+    if (overdueCountBadge) {
+      overdueCountBadge.textContent = `${count} Overdue`;
+      overdueCountBadge.className = count > 0 ? "badge badge-priority-high" : "badge badge-priority-low";
+    }
+
+    if (!Array.isArray(overdueList) || overdueList.length === 0) {
+      overdueContainer.innerHTML = `
+        <div class="empty-state" style="padding: var(--space-6);">
+          <div class="empty-state-icon" aria-hidden="true" style="color: var(--color-success); background-color: var(--color-success-bg);">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          </div>
+          <p class="empty-state-title">No overdue assignments!</p>
+          <p class="empty-state-desc">All past assignments are submitted or completed. Great work staying on schedule!</p>
+        </div>
+      `;
+      return;
+    }
+
+    overdueContainer.innerHTML = overdueList
+      .map((item) => {
+        const readableDate = formatCalendarDate(item.dueDate);
+        const daysText = getDaysUntil(item.dueDate);
+        const hasDesc = item.description && typeof item.description === "string" && item.description.trim().length > 0;
+
+        return `
+          <article class="deadline-card overdue-card" aria-label="${escapeHtml(item.title)}">
+            <div class="deadline-card-header">
+              <h3 class="deadline-card-title">${escapeHtml(item.title)}</h3>
+              <div class="assignment-badges">
+                <span class="badge badge-priority-${item.priority || "medium"}">${escapeHtml(item.priority || "medium")}</span>
+                <span class="badge badge-status-${item.status || "pending"}">${escapeHtml(item.status || "pending")}</span>
+              </div>
+            </div>
+
+            ${hasDesc ? `<p class="deadline-card-desc">${escapeHtml(item.description.trim())}</p>` : ""}
+
+            <div class="deadline-card-footer">
+              <div class="deadline-card-info">
+                <span class="badge badge-subject">${escapeHtml(item.subject || "General")}</span>
+                <span class="assignment-date" title="Due date: ${readableDate}">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                  <span>${readableDate}</span>
+                </span>
+                <span class="deadline-days-tag overdue">${daysText || "Overdue"}</span>
+              </div>
+
+              <div class="assignment-actions">
+                <button type="button" class="btn btn-sm btn-outline edit-assignment-btn" data-id="${item.id}" aria-label="Edit ${escapeHtml(item.title)}">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                  <span>Edit</span>
+                </button>
+              </div>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+  }
+
+  /**
+   * Render list of upcoming assignments
+   * @param {Array} upcomingList
+   */
+  function renderDeadlinesUpcomingList(upcomingList) {
+    if (!deadlinesUpcomingContainer) return;
+
+    const count = Array.isArray(upcomingList) ? upcomingList.length : 0;
+    if (upcomingCountBadge) {
+      upcomingCountBadge.textContent = `${count} Upcoming`;
+      upcomingCountBadge.className = count > 0 ? "badge badge-status-in-progress" : "badge badge-priority-low";
+    }
+
+    if (!Array.isArray(upcomingList) || upcomingList.length === 0) {
+      deadlinesUpcomingContainer.innerHTML = `
+        <div class="empty-state" style="padding: var(--space-6);">
+          <div class="empty-state-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+          </div>
+          <p class="empty-state-title">No upcoming deadlines</p>
+          <p class="empty-state-desc">You do not have any assignments due within the next 7 calendar days.</p>
+        </div>
+      `;
+      return;
+    }
+
+    deadlinesUpcomingContainer.innerHTML = upcomingList
+      .map((item) => {
+        const readableDate = formatCalendarDate(item.dueDate);
+        const daysText = getDaysUntil(item.dueDate);
+        const hasDesc = item.description && typeof item.description === "string" && item.description.trim().length > 0;
+
+        return `
+          <article class="deadline-card upcoming-card" aria-label="${escapeHtml(item.title)}">
+            <div class="deadline-card-header">
+              <h3 class="deadline-card-title">${escapeHtml(item.title)}</h3>
+              <div class="assignment-badges">
+                <span class="badge badge-priority-${item.priority || "medium"}">${escapeHtml(item.priority || "medium")}</span>
+                <span class="badge badge-status-${item.status || "pending"}">${escapeHtml(item.status || "pending")}</span>
+              </div>
+            </div>
+
+            ${hasDesc ? `<p class="deadline-card-desc">${escapeHtml(item.description.trim())}</p>` : ""}
+
+            <div class="deadline-card-footer">
+              <div class="deadline-card-info">
+                <span class="badge badge-subject">${escapeHtml(item.subject || "General")}</span>
+                <span class="assignment-date" title="Due date: ${readableDate}">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                  <span>${readableDate}</span>
+                </span>
+                <span class="deadline-days-tag upcoming">${daysText || "Upcoming"}</span>
+              </div>
+
+              <div class="assignment-actions">
+                <button type="button" class="btn btn-sm btn-outline edit-assignment-btn" data-id="${item.id}" aria-label="Edit ${escapeHtml(item.title)}">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                  <span>Edit</span>
+                </button>
+              </div>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+  }
+
+  /**
+   * Fetch data from /api/assignments/overdue and /api/assignments/upcoming
+   */
+  async function loadDeadlinesData() {
+    renderDeadlinesLoading();
+
+    try {
+      const [overdueResult, upcomingResult] = await Promise.allSettled([
+        fetch("/api/assignments/overdue").then(async (res) => {
+          if (!res.ok) throw new Error("Failed to fetch overdue assignments");
+          const json = await res.json();
+          if (!json.success || !Array.isArray(json.data)) throw new Error("Invalid overdue response");
+          return json.data;
+        }),
+        fetch("/api/assignments/upcoming").then(async (res) => {
+          if (!res.ok) throw new Error("Failed to fetch upcoming assignments");
+          const json = await res.json();
+          if (!json.success || !Array.isArray(json.data)) throw new Error("Invalid upcoming response");
+          return json.data;
+        }),
+      ]);
+
+      const overdueFailed = overdueResult.status === "rejected";
+      const upcomingFailed = upcomingResult.status === "rejected";
+
+      if (overdueFailed && upcomingFailed) {
+        throw new Error("Unable to connect to the CampusFlow API.");
+      }
+
+      if (overdueFailed || upcomingFailed) {
+        const failedName = overdueFailed ? "overdue" : "upcoming";
+        if (deadlinesError) {
+          deadlinesError.hidden = false;
+          if (deadlinesErrorText) {
+            deadlinesErrorText.textContent = `Unable to load ${failedName} assignments. Some deadline data may be unavailable.`;
+          }
+        }
+      } else {
+        if (deadlinesError) deadlinesError.hidden = true;
+      }
+
+      if (!overdueFailed) {
+        renderOverdueList(overdueResult.value);
+      } else {
+        if (overdueCountBadge) {
+          overdueCountBadge.textContent = "Error";
+          overdueCountBadge.className = "badge badge-priority-low";
+        }
+        if (overdueContainer) {
+          overdueContainer.innerHTML = `
+            <div class="empty-state" style="padding: var(--space-6);">
+              <p class="empty-state-title">Data unavailable</p>
+              <p class="empty-state-desc">Failed to load overdue assignments.</p>
+            </div>
+          `;
+        }
+      }
+
+      if (!upcomingFailed) {
+        renderDeadlinesUpcomingList(upcomingResult.value);
+      } else {
+        if (upcomingCountBadge) {
+          upcomingCountBadge.textContent = "Error";
+          upcomingCountBadge.className = "badge badge-priority-low";
+        }
+        if (deadlinesUpcomingContainer) {
+          deadlinesUpcomingContainer.innerHTML = `
+            <div class="empty-state" style="padding: var(--space-6);">
+              <p class="empty-state-title">Data unavailable</p>
+              <p class="empty-state-desc">Failed to load upcoming assignments.</p>
+            </div>
+          `;
+        }
+      }
+    } catch (err) {
+      console.error("Deadlines load error:", err);
+      renderDeadlinesError(err.message || "Failed to load deadline data.");
     }
   }
 
@@ -1245,6 +1571,8 @@
       loadDashboardData();
     } else if (targetSection === "assignments") {
       loadAssignmentsData();
+    } else if (targetSection === "deadlines") {
+      loadDeadlinesData();
     }
   }
 
@@ -1502,6 +1830,41 @@
           const title = deleteBtn.getAttribute("data-title") || "this assignment";
           if (id) openDeleteModal(id, title);
           return;
+        }
+      });
+    }
+
+    // Deadlines section event listeners (Phase 4.6)
+    if (refreshDeadlinesBtn) {
+      refreshDeadlinesBtn.addEventListener("click", () => {
+        loadDeadlinesData();
+      });
+    }
+
+    if (deadlinesRetryBtn) {
+      deadlinesRetryBtn.addEventListener("click", () => {
+        loadDeadlinesData();
+      });
+    }
+
+    // Edit action delegation in overdue container
+    if (overdueContainer) {
+      overdueContainer.addEventListener("click", (e) => {
+        const editBtn = e.target.closest(".edit-assignment-btn");
+        if (editBtn) {
+          const id = editBtn.getAttribute("data-id");
+          if (id) openEditModal(id);
+        }
+      });
+    }
+
+    // Edit action delegation in upcoming deadlines container
+    if (deadlinesUpcomingContainer) {
+      deadlinesUpcomingContainer.addEventListener("click", (e) => {
+        const editBtn = e.target.closest(".edit-assignment-btn");
+        if (editBtn) {
+          const id = editBtn.getAttribute("data-id");
+          if (id) openEditModal(id);
         }
       });
     }
