@@ -428,154 +428,162 @@ describe("CampusFlow API Integration Tests (Phase 2 & Phase 3)", () => {
   // 9. Upcoming assignments, including today and 7-day boundary
   // 10. Exclusion of completed assignments
   test("9 & 10. Upcoming assignments include today and 7-day boundary, exclude completed and >7 days", async () => {
-    const today = new Date();
-    const todayStr = getCalendarDateString(today);
+    try {
+      const today = new Date();
+      const todayStr = getCalendarDateString(today);
 
-    const day7 = new Date();
-    day7.setDate(day7.getDate() + 7);
-    const day7Str = getCalendarDateString(day7);
+      const day7 = new Date();
+      day7.setDate(day7.getDate() + 7);
+      const day7Str = getCalendarDateString(day7);
 
-    const day8 = new Date();
-    day8.setDate(day8.getDate() + 8);
-    const day8Str = getCalendarDateString(day8);
+      const day8 = new Date();
+      day8.setDate(day8.getDate() + 8);
+      const day8Str = getCalendarDateString(day8);
 
-    // Create test assignments
-    // 1. Due today (pending) -> should appear in upcoming
-    await fetch(`${BASE_URL}/api/assignments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: "Upcoming Due Today",
-        subject: "Math",
-        dueDate: todayStr,
-        status: "pending",
-      }),
-    });
+      // Create test assignments
+      // 1. Due today (pending) -> should appear in upcoming
+      await fetch(`${BASE_URL}/api/assignments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Upcoming Due Today",
+          subject: "Math",
+          dueDate: todayStr,
+          status: "pending",
+        }),
+      });
 
-    // 2. Due Day 7 (boundary day, pending) -> should appear in upcoming
-    await fetch(`${BASE_URL}/api/assignments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: "Upcoming Day 7 Boundary",
-        subject: "Physics",
-        dueDate: day7Str,
-        status: "in-progress",
-      }),
-    });
+      // 2. Due Day 7 (boundary day, pending) -> should appear in upcoming
+      await fetch(`${BASE_URL}/api/assignments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Upcoming Day 7 Boundary",
+          subject: "Physics",
+          dueDate: day7Str,
+          status: "in-progress",
+        }),
+      });
 
-    // 3. Due Day 8 (beyond boundary) -> should NOT appear in upcoming
-    await fetch(`${BASE_URL}/api/assignments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: "Far Future Assignment",
-        subject: "Biology",
-        dueDate: day8Str,
-        status: "pending",
-      }),
-    });
+      // 3. Due Day 8 (beyond boundary) -> should NOT appear in upcoming
+      await fetch(`${BASE_URL}/api/assignments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Far Future Assignment",
+          subject: "Biology",
+          dueDate: day8Str,
+          status: "pending",
+        }),
+      });
 
-    // 4. Due today but completed -> should be EXCLUDED
-    await fetch(`${BASE_URL}/api/assignments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: "Today Completed Assignment",
-        subject: "Chemistry",
-        dueDate: todayStr,
-        status: "completed",
-      }),
-    });
+      // 4. Due today but completed -> should be EXCLUDED
+      await fetch(`${BASE_URL}/api/assignments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Today Completed Assignment",
+          subject: "Chemistry",
+          dueDate: todayStr,
+          status: "completed",
+        }),
+      });
 
-    const res = await fetch(`${BASE_URL}/api/assignments/upcoming`);
-    assert.strictEqual(res.status, 200);
-    const body = await res.json();
-    assert.strictEqual(body.success, true);
-    assert(Array.isArray(body.data));
+      const res = await fetch(`${BASE_URL}/api/assignments/upcoming`);
+      assert.strictEqual(res.status, 200);
+      const body = await res.json();
+      assert.strictEqual(body.success, true);
+      assert(Array.isArray(body.data));
 
-    // Confirm no completed assignments are included
-    assert(body.data.every((item) => item.status !== "completed"));
+      // Confirm no completed assignments are included
+      assert(body.data.every((item) => item.status !== "completed"));
 
-    // Confirm "Upcoming Due Today" and "Upcoming Day 7 Boundary" are present
-    assert(body.data.some((item) => item.title === "Upcoming Due Today"));
-    assert(body.data.some((item) => item.title === "Upcoming Day 7 Boundary"));
+      // Confirm "Upcoming Due Today" and "Upcoming Day 7 Boundary" are present
+      assert(body.data.some((item) => item.title === "Upcoming Due Today"));
+      assert(body.data.some((item) => item.title === "Upcoming Day 7 Boundary"));
 
-    // Confirm "Far Future Assignment" and "Today Completed Assignment" are not present
-    assert(!body.data.some((item) => item.title === "Far Future Assignment"));
-    assert(!body.data.some((item) => item.title === "Today Completed Assignment"));
+      // Confirm "Far Future Assignment" and "Today Completed Assignment" are not present
+      assert(!body.data.some((item) => item.title === "Far Future Assignment"));
+      assert(!body.data.some((item) => item.title === "Today Completed Assignment"));
 
-    // Confirm sorted by nearest due date first
-    const dates = body.data.map((item) => new Date(item.dueDate).getTime());
-    for (let i = 1; i < dates.length; i++) {
-      assert(dates[i] >= dates[i - 1]);
+      // Confirm sorted by nearest due date first
+      const dates = body.data.map((item) => new Date(item.dueDate).getTime());
+      for (let i = 1; i < dates.length; i++) {
+        assert(dates[i] >= dates[i - 1]);
+      }
+    } finally {
+      await fs.writeFile(DATA_FILE, originalData, "utf-8");
     }
   });
 
   // 11. Overdue assignments and date boundaries
   test("11. Overdue assignments include strictly before today and exclude completed", async () => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = getCalendarDateString(yesterday);
+    try {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = getCalendarDateString(yesterday);
 
-    const pastDate = new Date();
-    pastDate.setDate(pastDate.getDate() - 5);
-    const pastDateStr = getCalendarDateString(pastDate);
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 5);
+      const pastDateStr = getCalendarDateString(pastDate);
 
-    // Overdue pending assignment
-    await fetch(`${BASE_URL}/api/assignments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: "Overdue Pending 1",
-        subject: "History",
-        dueDate: yesterdayStr,
-        status: "pending",
-      }),
-    });
+      // Overdue pending assignment
+      await fetch(`${BASE_URL}/api/assignments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Overdue Pending 1",
+          subject: "History",
+          dueDate: yesterdayStr,
+          status: "pending",
+        }),
+      });
 
-    // Older overdue assignment
-    await fetch(`${BASE_URL}/api/assignments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: "Overdue Older Pending",
-        subject: "History",
-        dueDate: pastDateStr,
-        status: "in-progress",
-      }),
-    });
+      // Older overdue assignment
+      await fetch(`${BASE_URL}/api/assignments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Overdue Older Pending",
+          subject: "History",
+          dueDate: pastDateStr,
+          status: "in-progress",
+        }),
+      });
 
-    // Overdue but completed assignment -> should be EXCLUDED
-    await fetch(`${BASE_URL}/api/assignments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: "Overdue Completed Assignment",
-        subject: "History",
-        dueDate: yesterdayStr,
-        status: "completed",
-      }),
-    });
+      // Overdue but completed assignment -> should be EXCLUDED
+      await fetch(`${BASE_URL}/api/assignments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Overdue Completed Assignment",
+          subject: "History",
+          dueDate: yesterdayStr,
+          status: "completed",
+        }),
+      });
 
-    const res = await fetch(`${BASE_URL}/api/assignments/overdue`);
-    assert.strictEqual(res.status, 200);
-    const body = await res.json();
-    assert.strictEqual(body.success, true);
-    assert(Array.isArray(body.data));
+      const res = await fetch(`${BASE_URL}/api/assignments/overdue`);
+      assert.strictEqual(res.status, 200);
+      const body = await res.json();
+      assert.strictEqual(body.success, true);
+      assert(Array.isArray(body.data));
 
-    // Confirm no completed assignments
-    assert(body.data.every((item) => item.status !== "completed"));
+      // Confirm no completed assignments
+      assert(body.data.every((item) => item.status !== "completed"));
 
-    // Confirm overdue items present
-    assert(body.data.some((item) => item.title === "Overdue Pending 1"));
-    assert(body.data.some((item) => item.title === "Overdue Older Pending"));
-    assert(!body.data.some((item) => item.title === "Overdue Completed Assignment"));
+      // Confirm overdue items present
+      assert(body.data.some((item) => item.title === "Overdue Pending 1"));
+      assert(body.data.some((item) => item.title === "Overdue Older Pending"));
+      assert(!body.data.some((item) => item.title === "Overdue Completed Assignment"));
 
-    // Confirm sorted oldest overdue date first
-    const dates = body.data.map((item) => new Date(item.dueDate).getTime());
-    for (let i = 1; i < dates.length; i++) {
-      assert(dates[i] >= dates[i - 1]);
+      // Confirm sorted oldest overdue date first
+      const dates = body.data.map((item) => new Date(item.dueDate).getTime());
+      for (let i = 1; i < dates.length; i++) {
+        assert(dates[i] >= dates[i - 1]);
+      }
+    } finally {
+      await fs.writeFile(DATA_FILE, originalData, "utf-8");
     }
   });
 
@@ -1004,6 +1012,236 @@ describe("CampusFlow API Integration Tests (Phase 2 & Phase 3)", () => {
       await fetch(`${BASE_URL}/api/assignments/${targetId}`, {
         method: "DELETE",
       });
+    }
+  });
+
+  // 18. Malformed JSON request body and unsupported HTTP method handling
+  test("18. Malformed JSON request body and unsupported HTTP method handling", async () => {
+    // Malformed JSON body on POST -> 400 Bad Request
+    let res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: '{"title": "Broken", "dueDate": invalid_json}',
+    });
+    assert.strictEqual(res.status, 400);
+    let body = await res.json();
+    assert.strictEqual(body.success, false);
+
+    // Malformed JSON body on PATCH -> 400 Bad Request
+    res = await fetch(`${BASE_URL}/api/assignments/1`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: '{"title": "Unclosed',
+    });
+    assert.strictEqual(res.status, 400);
+    body = await res.json();
+    assert.strictEqual(body.success, false);
+
+    // Unsupported HTTP method (PUT) -> 404 Route not found
+    res = await fetch(`${BASE_URL}/api/assignments/1`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "Put Title" }),
+    });
+    assert.strictEqual(res.status, 404);
+    body = await res.json();
+    assert.strictEqual(body.success, false);
+    assert(body.message.includes("Route not found"));
+  });
+
+  // 19. Non-numeric and invalid route ID parameter handling on GET, PATCH, and DELETE
+  test("19. Non-numeric and invalid route ID parameter handling on GET, PATCH, and DELETE", async () => {
+    const invalidIds = ["abc", "null", "undefined", "-5", "0"];
+
+    for (const id of invalidIds) {
+      // GET invalid ID -> 404
+      let res = await fetch(`${BASE_URL}/api/assignments/${id}`);
+      assert.strictEqual(res.status, 404);
+      let body = await res.json();
+      assert.strictEqual(body.success, false);
+
+      // PATCH invalid ID -> 404
+      res = await fetch(`${BASE_URL}/api/assignments/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Updated" }),
+      });
+      assert.strictEqual(res.status, 404);
+      body = await res.json();
+      assert.strictEqual(body.success, false);
+
+      // DELETE invalid ID -> 404
+      res = await fetch(`${BASE_URL}/api/assignments/${id}`, {
+        method: "DELETE",
+      });
+      assert.strictEqual(res.status, 404);
+      body = await res.json();
+      assert.strictEqual(body.success, false);
+    }
+  });
+
+  // 20. Whitespace-only validation boundaries and unallowed field sanitization on POST and PATCH
+  test("20. Whitespace-only validation boundaries and unallowed field sanitization on POST and PATCH", async () => {
+    // POST with whitespace-only title -> 400
+    let res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "    ",
+        subject: "Math",
+        dueDate: "2026-12-01",
+      }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // POST with whitespace-only subject -> 400
+    res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Valid Title",
+        subject: "    ",
+        dueDate: "2026-12-01",
+      }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // PATCH with whitespace-only title -> 400
+    res = await fetch(`${BASE_URL}/api/assignments/1`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "   " }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // PATCH with whitespace-only subject -> 400
+    res = await fetch(`${BASE_URL}/api/assignments/1`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subject: "   " }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // PATCH with only unallowed/extraneous fields -> 400
+    res = await fetch(`${BASE_URL}/api/assignments/1`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ unknownField: "ignored", evilScript: true }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // PATCH with invalid status enum -> 400
+    res = await fetch(`${BASE_URL}/api/assignments/1`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "invalid_status_value" }),
+    });
+    assert.strictEqual(res.status, 400);
+  });
+
+  // 21. Search with regex/special characters and case-insensitive subject filtering
+  test("21. Search with regex/special characters and case-insensitive subject filtering", async () => {
+    // Search queries containing regex special characters shouldn't crash the server
+    const specialQueries = ["C++", "norm[", "exer(cise)", ".*", "^title$", "?", "+"];
+    for (const query of specialQueries) {
+      const res = await fetch(`${BASE_URL}/api/assignments?search=${encodeURIComponent(query)}`);
+      assert.strictEqual(res.status, 200, `Search failed for term: ${query}`);
+      const body = await res.json();
+      assert.strictEqual(body.success, true);
+      assert(Array.isArray(body.data));
+    }
+
+    // Case-insensitive subject filtering matches identical items regardless of casing
+    let resUpper = await fetch(`${BASE_URL}/api/assignments?subject=DBMS`);
+    let resLower = await fetch(`${BASE_URL}/api/assignments?subject=dbms`);
+    let resMixed = await fetch(`${BASE_URL}/api/assignments?subject=DbMs`);
+
+    assert.strictEqual(resUpper.status, 200);
+    assert.strictEqual(resLower.status, 200);
+    assert.strictEqual(resMixed.status, 200);
+
+    let bodyUpper = await resUpper.json();
+    let bodyLower = await resLower.json();
+    let bodyMixed = await resMixed.json();
+
+    assert.strictEqual(bodyUpper.data.length, bodyLower.data.length);
+    assert.strictEqual(bodyUpper.data.length, bodyMixed.data.length);
+    assert.strictEqual(bodyUpper.data[0].id, bodyLower.data[0].id);
+  });
+
+  // 22. Pagination beyond available pages and out-of-range bounds
+  test("22. Pagination beyond available pages and out-of-range bounds", async () => {
+    // Request a page far beyond total available pages
+    const res = await fetch(`${BASE_URL}/api/assignments?page=999&limit=10`);
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.success, true);
+    assert.strictEqual(body.data.length, 0);
+    assert.strictEqual(body.pagination.page, 999);
+    assert.strictEqual(body.pagination.limit, 10);
+    assert.strictEqual(body.pagination.total, 4);
+    assert.strictEqual(body.pagination.totalPages, 1);
+  });
+
+  // 23. Direct JSON disk persistence and data integrity verification across POST, PATCH, and DELETE
+  test("23. Direct JSON disk persistence and data integrity verification across POST, PATCH, and DELETE", async () => {
+    let createdId;
+    try {
+      // 1. POST and verify disk write
+      let res = await fetch(`${BASE_URL}/api/assignments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Disk Persistence Test",
+          subject: "Operating Systems",
+          dueDate: "2026-12-29",
+          priority: "high",
+          status: "pending",
+          description: "Verifying disk write persistence to assignments.json",
+          injectedField: "should_not_exist",
+        }),
+      });
+      assert.strictEqual(res.status, 201);
+      let body = await res.json();
+      createdId = body.data.id;
+      assert.strictEqual(body.data.injectedField, undefined);
+
+      let diskContent = JSON.parse(await fs.readFile(DATA_FILE, "utf-8"));
+      let diskRecord = diskContent.find((item) => item.id === createdId);
+      assert(diskRecord, "Created record must be persisted to assignments.json");
+      assert.strictEqual(diskRecord.title, "Disk Persistence Test");
+      assert.strictEqual(diskRecord.injectedField, undefined);
+      assert(diskRecord.createdAt);
+      assert(diskRecord.updatedAt);
+
+      // 2. PATCH and verify disk update
+      res = await fetch(`${BASE_URL}/api/assignments/${createdId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Updated Disk Persistence Title",
+          status: "completed",
+        }),
+      });
+      assert.strictEqual(res.status, 200);
+
+      diskContent = JSON.parse(await fs.readFile(DATA_FILE, "utf-8"));
+      diskRecord = diskContent.find((item) => item.id === createdId);
+      assert.strictEqual(diskRecord.title, "Updated Disk Persistence Title");
+      assert.strictEqual(diskRecord.status, "completed");
+
+      // 3. DELETE and verify disk removal
+      res = await fetch(`${BASE_URL}/api/assignments/${createdId}`, {
+        method: "DELETE",
+      });
+      assert.strictEqual(res.status, 200);
+
+      diskContent = JSON.parse(await fs.readFile(DATA_FILE, "utf-8"));
+      diskRecord = diskContent.find((item) => item.id === createdId);
+      assert.strictEqual(diskRecord, undefined, "Deleted record must be removed from assignments.json");
+    } finally {
+      // Guarantee original seed data is restored even if assertions fail
+      await fs.writeFile(DATA_FILE, originalData, "utf-8");
     }
   });
 });
