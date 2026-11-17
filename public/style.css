@@ -126,6 +126,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Universal hidden attribute enforcement */
+[hidden] {
+  display: none !important;
+}
+
 /* Accessibility: Skip Link */
 .skip-link {
   position: absolute;
@@ -568,6 +573,10 @@ body {
   border-radius: var(--radius-lg);
   margin-bottom: var(--space-6);
   border: 1px solid transparent;
+}
+
+.alert-banner[hidden] {
+  display: none !important;
 }
 
 .alert-content {
