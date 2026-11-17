@@ -1,10 +1,37 @@
-const { asyncHandler, successResponse } = require("express-api-toolkit");
+const {
+  asyncHandler,
+  successResponse,
+  getPagination,
+  paginateResponse,
+} = require("express-api-toolkit");
+const { PAGINATION } = require("../config/constants");
 const assignmentService = require("../services/assignmentService");
 
-// GET /api/assignments
+// GET /api/assignments (with search, filtering, and pagination)
 const getAllAssignments = asyncHandler(async (req, res) => {
-  const assignments = await assignmentService.getAllAssignments();
-  return successResponse(res, assignments, "Assignments retrieved successfully");
+  const { page, limit, skip } = getPagination(req.query, {
+    defaultPage: PAGINATION.DEFAULT_PAGE,
+    defaultLimit: PAGINATION.DEFAULT_LIMIT,
+    maxLimit: PAGINATION.MAX_LIMIT,
+  });
+
+  const { assignments, total } = await assignmentService.getAllAssignments({
+    search: req.query.search,
+    status: req.query.status,
+    priority: req.query.priority,
+    subject: req.query.subject,
+    skip,
+    limit,
+  });
+
+  return paginateResponse(
+    res,
+    assignments,
+    total,
+    page,
+    limit,
+    "Assignments retrieved successfully"
+  );
 });
 
 // GET /api/assignments/:id
