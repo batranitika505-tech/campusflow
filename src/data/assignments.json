@@ -1,0 +1,47 @@
+
+[
+  {
+    "id": 1,
+    "title": "DBMS Normalization Assignment",
+    "description": "Complete exercises on 1NF, 2NF, 3NF and BCNF.",
+    "subject": "DBMS",
+    "dueDate": "2026-11-20",
+    "priority": "high",
+    "status": "pending",
+    "createdAt": "2026-11-17T08:00:00.000Z",
+    "updatedAt": "2026-11-17T08:00:00.000Z"
+  },
+  {
+    "id": 2,
+    "title": "JavaScript Promise Practice",
+    "description": "Solve asynchronous login and Promise exercises.",
+    "subject": "JavaScript",
+    "dueDate": "2026-11-19",
+    "priority": "medium",
+    "status": "in-progress",
+    "createdAt": "2026-11-17T08:10:00.000Z",
+    "updatedAt": "2026-11-17T08:10:00.000Z"
+  },
+  {
+    "id": 3,
+    "title": "React Native Camera Practical",
+    "description": "Implement camera permission handling in Expo.",
+    "subject": "Mobile Development",
+    "dueDate": "2026-11-25",
+    "priority": "high",
+    "status": "completed",
+    "createdAt": "2026-11-17T08:20:00.000Z",
+    "updatedAt": "2026-11-17T08:20:00.000Z"
+  },
+  {
+    "id": 4,
+    "title": "Operating Systems Revision",
+    "description": "Revise process scheduling and memory management.",
+    "subject": "Operating Systems",
+    "dueDate": "2026-11-22",
+    "priority": "low",
+    "status": "pending",
+    "createdAt": "2026-11-17T08:30:00.000Z",
+    "updatedAt": "2026-11-17T08:30:00.000Z"
+  }
+]
