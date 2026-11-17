@@ -1593,6 +1593,12 @@ body {
   transition: opacity var(--transition-normal);
 }
 
+@media (max-width: 992px) {
+  .deadlines-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 768px) {
   .menu-toggle {
     display: inline-flex;
@@ -1633,8 +1639,15 @@ body {
     align-items: stretch;
   }
 
-  .deadlines-grid {
-    grid-template-columns: 1fr;
+  .header-btn-group {
+    width: 100%;
+    display: flex;
+    gap: var(--space-2);
+  }
+
+  .header-btn-group .btn {
+    flex: 1;
+    justify-content: center;
   }
 
   .filter-toolbar {
@@ -1694,6 +1707,15 @@ body {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-3);
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .upcoming-title {
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 
   .upcoming-badges {
@@ -1703,6 +1725,16 @@ body {
 
   .assignment-card {
     padding: var(--space-4);
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .assignment-title,
+  .assignment-desc {
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 
   .assignment-header {
@@ -1721,6 +1753,34 @@ body {
     gap: var(--space-2);
   }
 
+  .assignment-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .deadline-card {
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .deadline-card-title,
+  .deadline-card-desc {
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .deadline-card-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .deadline-card-footer .btn {
+    align-self: flex-end;
+  }
+
   .welcome-card {
     flex-direction: column;
     padding: var(--space-6);
@@ -1729,6 +1789,43 @@ body {
   .form-row {
     flex-direction: column;
     gap: var(--space-4);
+  }
+
+  .modal-card {
+    max-height: 94vh;
+    margin: var(--space-3);
+    border-radius: var(--radius-lg);
+  }
+
+  .modal-header {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .modal-form {
+    padding: var(--space-4);
+    gap: var(--space-3);
+  }
+
+  .modal-body {
+    padding: var(--space-4);
+  }
+
+  .modal-footer {
+    flex-direction: column-reverse;
+    gap: var(--space-2);
+    padding-top: var(--space-3);
+  }
+
+  .modal-footer .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    font-size: 16px;
+    min-height: 40px;
   }
 
   .toast {
@@ -1746,5 +1843,52 @@ body {
 
   .filter-controls-group {
     grid-template-columns: 1fr;
+  }
+
+  .deadline-card-footer .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .assignment-actions {
+    display: flex;
+    width: 100%;
+    gap: var(--space-2);
+  }
+
+  .assignment-actions .btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .pagination-btn-group {
+    width: 100%;
+    display: flex;
+  }
+
+  .pagination-btn-group .btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 360px) {
+  .app-header {
+    padding: 0 var(--space-3);
+  }
+
+  .status-indicator .status-text {
+    display: none;
+  }
+
+  .app-main {
+    padding: var(--space-4) var(--space-2);
+  }
+
+  .assignment-card,
+  .deadline-card,
+  .dashboard-block,
+  .welcome-card {
+    padding: var(--space-3);
   }
 }
