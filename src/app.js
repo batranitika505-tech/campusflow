@@ -9,6 +9,7 @@ const {
 
 const notFound = require("./middleware/notFound");
 const assignmentRoutes = require("./routes/assignmentRoutes");
+const subjectRoutes = require("./routes/subjectRoutes");
 
 const app = express();
 
@@ -33,6 +34,7 @@ app.get("/api/health", (req, res) => {
 
 // API routes
 app.use("/api/assignments", assignmentRoutes);
+app.use("/api/subjects", subjectRoutes);
 
 // 404 handling
 app.use(notFound);

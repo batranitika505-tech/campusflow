@@ -61,6 +61,9 @@ const validateQuery = validateRequest({
 });
 
 router.get("/", validateQuery, assignmentController.getAllAssignments);
+router.get("/upcoming", assignmentController.getUpcomingAssignments);
+router.get("/overdue", assignmentController.getOverdueAssignments);
+router.get("/stats", assignmentController.getAssignmentStats);
 router.get("/:id", assignmentController.getAssignmentById);
 router.post("/", assignmentController.createAssignment);
 router.patch("/:id", assignmentController.updateAssignment);

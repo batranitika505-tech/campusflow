@@ -34,6 +34,36 @@ const getAllAssignments = asyncHandler(async (req, res) => {
   );
 });
 
+// GET /api/assignments/upcoming
+const getUpcomingAssignments = asyncHandler(async (req, res) => {
+  const assignments = await assignmentService.getUpcomingAssignments();
+  return successResponse(
+    res,
+    assignments,
+    "Upcoming assignments retrieved successfully"
+  );
+});
+
+// GET /api/assignments/overdue
+const getOverdueAssignments = asyncHandler(async (req, res) => {
+  const assignments = await assignmentService.getOverdueAssignments();
+  return successResponse(
+    res,
+    assignments,
+    "Overdue assignments retrieved successfully"
+  );
+});
+
+// GET /api/assignments/stats
+const getAssignmentStats = asyncHandler(async (req, res) => {
+  const stats = await assignmentService.getAssignmentStats();
+  return successResponse(
+    res,
+    stats,
+    "Assignment statistics retrieved successfully"
+  );
+});
+
 // GET /api/assignments/:id
 const getAssignmentById = asyncHandler(async (req, res) => {
   const assignment = await assignmentService.getAssignmentById(req.params.id);
@@ -63,6 +93,9 @@ const deleteAssignment = asyncHandler(async (req, res) => {
 
 module.exports = {
   getAllAssignments,
+  getUpcomingAssignments,
+  getOverdueAssignments,
+  getAssignmentStats,
   getAssignmentById,
   createAssignment,
   updateAssignment,

@@ -11,6 +11,35 @@ const {
   ASSIGNMENT_PRIORITY,
 } = require("../config/constants");
 
+// Helper to convert due date to calendar date string (YYYY-MM-DD)
+function toCalendarDate(dueDate) {
+  if (typeof dueDate === "string" && /^\d{4}-\d{2}-\d{2}/.test(dueDate)) {
+    return dueDate.slice(0, 10);
+  }
+  const d = new Date(dueDate);
+  if (isNaN(d.getTime())) return null;
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+// Helper to get calendar date string for a given date
+function getTodayString(refDate = new Date()) {
+  const d = new Date(refDate);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+// Helper to get calendar date string 7 days after given date
+function getUpcomingEndString(refDate = new Date()) {
+  const d = new Date(refDate);
+  d.setDate(d.getDate() + 7);
+  return getTodayString(d);
+}
+
 // Get all assignments with search, filtering, sorting, and pagination
 async function getAllAssignments(options = {}) {
   const { search, status, priority, subject, skip, limit } = options;
@@ -68,6 +97,93 @@ async function getAllAssignments(options = {}) {
   return {
     assignments,
     total,
+  };
+}
+
+// Get upcoming assignments (due today through next 7 calendar days inclusive, not completed)
+async function getUpcomingAssignments(refDate = new Date()) {
+  const assignments = await readData();
+  const todayStr = getTodayString(refDate);
+  const endStr = getUpcomingEndString(refDate);
+
+  const upcoming = assignments.filter((item) => {
+    if (item.status === ASSIGNMENT_STATUS.COMPLETED) {
+      return false;
+    }
+    const itemDate = toCalendarDate(item.dueDate);
+    return itemDate && itemDate >= todayStr && itemDate <= endStr;
+  });
+
+  // Sort by nearest due date first
+  upcoming.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate) || a.id - b.id);
+
+  return upcoming;
+}
+
+// Get overdue assignments (due strictly before today, not completed)
+async function getOverdueAssignments(refDate = new Date()) {
+  const assignments = await readData();
+  const todayStr = getTodayString(refDate);
+
+  const overdue = assignments.filter((item) => {
+    if (item.status === ASSIGNMENT_STATUS.COMPLETED) {
+      return false;
+    }
+    const itemDate = toCalendarDate(item.dueDate);
+    return itemDate && itemDate < todayStr;
+  });
+
+  // Sort oldest overdue date first
+  overdue.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate) || a.id - b.id);
+
+  return overdue;
+}
+
+// Get assignment statistics
+async function getAssignmentStats(refDate = new Date()) {
+  const assignments = await readData();
+  const todayStr = getTodayString(refDate);
+  const endStr = getUpcomingEndString(refDate);
+
+  const total = assignments.length;
+  let pending = 0;
+  let inProgress = 0;
+  let completed = 0;
+  let overdue = 0;
+  let upcoming = 0;
+
+  for (const item of assignments) {
+    if (item.status === ASSIGNMENT_STATUS.PENDING) {
+      pending++;
+    } else if (item.status === ASSIGNMENT_STATUS.IN_PROGRESS) {
+      inProgress++;
+    } else if (item.status === ASSIGNMENT_STATUS.COMPLETED) {
+      completed++;
+    }
+
+    if (item.status !== ASSIGNMENT_STATUS.COMPLETED) {
+      const itemDate = toCalendarDate(item.dueDate);
+      if (itemDate) {
+        if (itemDate < todayStr) {
+          overdue++;
+        } else if (itemDate >= todayStr && itemDate <= endStr) {
+          upcoming++;
+        }
+      }
+    }
+  }
+
+  const completionPercentage =
+    total === 0 ? 0 : Number(((completed / total) * 100).toFixed(2));
+
+  return {
+    total,
+    pending,
+    inProgress,
+    completed,
+    overdue,
+    upcoming,
+    completionPercentage,
   };
 }
 
@@ -267,6 +383,9 @@ async function deleteAssignment(id) {
 
 module.exports = {
   getAllAssignments,
+  getUpcomingAssignments,
+  getOverdueAssignments,
+  getAssignmentStats,
   getAssignmentById,
   createAssignment,
   updateAssignment,
