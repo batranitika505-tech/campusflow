@@ -11,17 +11,43 @@ const {
   ASSIGNMENT_PRIORITY,
 } = require("../config/constants");
 
+// Validate strict YYYY-MM-DD calendar date using Gregorian calendar rules
+function isValidCalendarDate(dueDate) {
+  if (typeof dueDate !== "string") {
+    return false;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
+    return false;
+  }
+
+  const [yearStr, monthStr, dayStr] = dueDate.split("-");
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
+  const day = parseInt(dayStr, 10);
+
+  if (month < 1 || month > 12) {
+    return false;
+  }
+
+  const isLeapYear =
+    (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+
+  let maxDays = 31;
+  if (month === 2) {
+    maxDays = isLeapYear ? 29 : 28;
+  } else if (month === 4 || month === 6 || month === 9 || month === 11) {
+    maxDays = 30;
+  }
+
+  return day >= 1 && day <= maxDays;
+}
+
 // Helper to convert due date to calendar date string (YYYY-MM-DD)
 function toCalendarDate(dueDate) {
   if (typeof dueDate === "string" && /^\d{4}-\d{2}-\d{2}/.test(dueDate)) {
     return dueDate.slice(0, 10);
   }
-  const d = new Date(dueDate);
-  if (isNaN(d.getTime())) return null;
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return dueDate;
 }
 
 // Helper to get calendar date string for a given date
@@ -85,8 +111,8 @@ async function getAllAssignments(options = {}) {
     );
   }
 
-  // Sort by due date ascending, tie-break by ID
-  assignments.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate) || a.id - b.id);
+  // Sort by due date ascending using calendar-date comparison, tie-break by ID
+  assignments.sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.id - b.id);
 
   const total = assignments.length;
 
@@ -114,8 +140,8 @@ async function getUpcomingAssignments(refDate = new Date()) {
     return itemDate && itemDate >= todayStr && itemDate <= endStr;
   });
 
-  // Sort by nearest due date first
-  upcoming.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate) || a.id - b.id);
+  // Sort by nearest due date first using calendar-date comparison
+  upcoming.sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.id - b.id);
 
   return upcoming;
 }
@@ -133,8 +159,8 @@ async function getOverdueAssignments(refDate = new Date()) {
     return itemDate && itemDate < todayStr;
   });
 
-  // Sort oldest overdue date first
-  overdue.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate) || a.id - b.id);
+  // Sort oldest overdue date first using calendar-date comparison
+  overdue.sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.id - b.id);
 
   return overdue;
 }
@@ -226,7 +252,7 @@ async function createAssignment(data) {
     );
   }
 
-  if (isNaN(Date.parse(dueDate))) {
+  if (typeof dueDate !== "string" || !isValidCalendarDate(dueDate)) {
     throw new ApiError(400, "Invalid due date format");
   }
 
@@ -251,7 +277,7 @@ async function createAssignment(data) {
     title: title.trim(),
     description: typeof description === "string" ? description.trim() : (description || ""),
     subject: subject.trim(),
-    dueDate: typeof dueDate === "string" ? dueDate.trim() : dueDate,
+    dueDate,
     priority: priority || ASSIGNMENT_PRIORITY.MEDIUM,
     status: status || ASSIGNMENT_STATUS.PENDING,
     createdAt: now,
@@ -324,14 +350,10 @@ async function updateAssignment(id, updates) {
 
   if (filteredUpdates.dueDate !== undefined) {
     if (
-      !filteredUpdates.dueDate ||
-      (typeof filteredUpdates.dueDate === "string" && !filteredUpdates.dueDate.trim()) ||
-      isNaN(Date.parse(filteredUpdates.dueDate))
+      typeof filteredUpdates.dueDate !== "string" ||
+      !isValidCalendarDate(filteredUpdates.dueDate)
     ) {
       throw new ApiError(400, "Invalid due date format");
-    }
-    if (typeof filteredUpdates.dueDate === "string") {
-      filteredUpdates.dueDate = filteredUpdates.dueDate.trim();
     }
   }
 

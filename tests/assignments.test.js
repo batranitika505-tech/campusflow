@@ -225,6 +225,206 @@ describe("CampusFlow API Integration Tests (Phase 2 & Phase 3)", () => {
     assert.strictEqual(res.status, 400);
   });
 
+  // Strict due-date validation tests (invalid formats, impossible calendar dates, non-string dates, valid dates)
+  test("Strict due-date validation on POST and PATCH", async () => {
+    // POST with non-string dueDates
+    let res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Test Date",
+        subject: "Math",
+        dueDate: 123456789,
+      }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Test Date",
+        subject: "Math",
+        dueDate: true,
+      }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Test Date",
+        subject: "Math",
+        dueDate: { date: "2026-11-20" },
+      }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // POST with invalid date formats
+    const invalidFormats = [
+      "2026/11/20",
+      "20-11-2026",
+      "2026-1-1",
+      "2026-11-20T00:00:00.000Z",
+      "2026-11-20 ",
+      " 2026-11-20",
+      "not-a-date",
+    ];
+    for (const fmt of invalidFormats) {
+      res = await fetch(`${BASE_URL}/api/assignments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Test Format",
+          subject: "Math",
+          dueDate: fmt,
+        }),
+      });
+      assert.strictEqual(res.status, 400, `Expected 400 for format: ${fmt}`);
+    }
+
+    // POST with impossible calendar dates
+    const impossibleDates = [
+      "2026-02-30", // Feb 30 does not exist
+      "2026-02-29", // 2026 is not a leap year
+      "1900-02-29", // 1900 is divisible by 100 but not 400 (not a leap year)
+      "2026-04-31", // April has 30 days
+      "2026-06-31", // June has 30 days
+      "2026-09-31", // September has 30 days
+      "2026-11-31", // November has 30 days
+      "2026-13-01", // Month 13
+      "2026-00-15", // Month 0
+      "2026-05-00", // Day 0
+      "2026-05-32", // Day 32
+    ];
+    for (const impDate of impossibleDates) {
+      res = await fetch(`${BASE_URL}/api/assignments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Test Impossible Date",
+          subject: "Math",
+          dueDate: impDate,
+        }),
+      });
+      assert.strictEqual(res.status, 400, `Expected 400 for impossible date: ${impDate}`);
+    }
+
+    // POST with valid dates works
+    res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Valid Leap Year Date",
+        subject: "Math",
+        dueDate: "2024-02-29", // 2024 is a leap year
+      }),
+    });
+    assert.strictEqual(res.status, 201);
+    let body = await res.json();
+    const createdId = body.data.id;
+
+    // POST with 2000-02-29 (valid leap year: divisible by 400)
+    res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Year 2000 Leap Day",
+        subject: "History",
+        dueDate: "2000-02-29",
+      }),
+    });
+    assert.strictEqual(res.status, 201);
+    body = await res.json();
+    assert.strictEqual(body.data.dueDate, "2000-02-29");
+    const id2000 = body.data.id;
+
+    // POST with 0099-12-31 (valid calendar date with year < 100)
+    res = await fetch(`${BASE_URL}/api/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Year 0099 End Date",
+        subject: "History",
+        dueDate: "0099-12-31",
+      }),
+    });
+    assert.strictEqual(res.status, 201);
+    body = await res.json();
+    assert.strictEqual(body.data.dueDate, "0099-12-31");
+    const id0099 = body.data.id;
+
+    // Clean up temporary created assignments
+    await fetch(`${BASE_URL}/api/assignments/${id2000}`, { method: "DELETE" });
+    await fetch(`${BASE_URL}/api/assignments/${id0099}`, { method: "DELETE" });
+
+    // PATCH with non-string date
+    res = await fetch(`${BASE_URL}/api/assignments/${createdId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dueDate: 999999 }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // PATCH with invalid format
+    res = await fetch(`${BASE_URL}/api/assignments/${createdId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dueDate: "2026/12/31" }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // PATCH with impossible calendar date (Feb 30)
+    res = await fetch(`${BASE_URL}/api/assignments/${createdId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dueDate: "2026-02-30" }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // PATCH with impossible calendar date (1900-02-29: not a leap year)
+    res = await fetch(`${BASE_URL}/api/assignments/${createdId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dueDate: "1900-02-29" }),
+    });
+    assert.strictEqual(res.status, 400);
+
+    // PATCH with valid leap year (2000-02-29)
+    res = await fetch(`${BASE_URL}/api/assignments/${createdId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dueDate: "2000-02-29" }),
+    });
+    assert.strictEqual(res.status, 200);
+    body = await res.json();
+    assert.strictEqual(body.data.dueDate, "2000-02-29");
+
+    // PATCH with valid year < 100 (0099-12-31)
+    res = await fetch(`${BASE_URL}/api/assignments/${createdId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dueDate: "0099-12-31" }),
+    });
+    assert.strictEqual(res.status, 200);
+    body = await res.json();
+    assert.strictEqual(body.data.dueDate, "0099-12-31");
+
+    // PATCH with valid calendar date
+    res = await fetch(`${BASE_URL}/api/assignments/${createdId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dueDate: "2026-12-31" }),
+    });
+    assert.strictEqual(res.status, 200);
+    body = await res.json();
+    assert.strictEqual(body.data.dueDate, "2026-12-31");
+
+    // Clean up created assignment
+    await fetch(`${BASE_URL}/api/assignments/${createdId}`, { method: "DELETE" });
+  });
+
   // 9. Upcoming assignments, including today and 7-day boundary
   // 10. Exclusion of completed assignments
   test("9 & 10. Upcoming assignments include today and 7-day boundary, exclude completed and >7 days", async () => {
@@ -404,53 +604,55 @@ describe("CampusFlow API Integration Tests (Phase 2 & Phase 3)", () => {
     assert.strictEqual(stats.completionPercentage, expectedPercentage);
   });
 
-  // 13. Empty dataset behavior
+  // 13. Empty dataset behavior (wrapped in try/finally for guaranteed isolation)
   test("13. Handles empty dataset cleanly across all endpoints", async () => {
-    // Temporarily clear assignments file
-    await fs.writeFile(DATA_FILE, "[]", "utf-8");
+    try {
+      // Temporarily clear assignments file
+      await fs.writeFile(DATA_FILE, "[]", "utf-8");
 
-    // GET /api/assignments
-    let res = await fetch(`${BASE_URL}/api/assignments`);
-    assert.strictEqual(res.status, 200);
-    let body = await res.json();
-    assert.strictEqual(body.data.length, 0);
-    assert.strictEqual(body.pagination.total, 0);
-    assert.strictEqual(body.pagination.totalPages, 0);
+      // GET /api/assignments
+      let res = await fetch(`${BASE_URL}/api/assignments`);
+      assert.strictEqual(res.status, 200);
+      let body = await res.json();
+      assert.strictEqual(body.data.length, 0);
+      assert.strictEqual(body.pagination.total, 0);
+      assert.strictEqual(body.pagination.totalPages, 0);
 
-    // GET /api/assignments/upcoming
-    res = await fetch(`${BASE_URL}/api/assignments/upcoming`);
-    assert.strictEqual(res.status, 200);
-    body = await res.json();
-    assert.deepStrictEqual(body.data, []);
+      // GET /api/assignments/upcoming
+      res = await fetch(`${BASE_URL}/api/assignments/upcoming`);
+      assert.strictEqual(res.status, 200);
+      body = await res.json();
+      assert.deepStrictEqual(body.data, []);
 
-    // GET /api/assignments/overdue
-    res = await fetch(`${BASE_URL}/api/assignments/overdue`);
-    assert.strictEqual(res.status, 200);
-    body = await res.json();
-    assert.deepStrictEqual(body.data, []);
+      // GET /api/assignments/overdue
+      res = await fetch(`${BASE_URL}/api/assignments/overdue`);
+      assert.strictEqual(res.status, 200);
+      body = await res.json();
+      assert.deepStrictEqual(body.data, []);
 
-    // GET /api/assignments/stats
-    res = await fetch(`${BASE_URL}/api/assignments/stats`);
-    assert.strictEqual(res.status, 200);
-    body = await res.json();
-    assert.deepStrictEqual(body.data, {
-      total: 0,
-      pending: 0,
-      inProgress: 0,
-      completed: 0,
-      overdue: 0,
-      upcoming: 0,
-      completionPercentage: 0,
-    });
+      // GET /api/assignments/stats
+      res = await fetch(`${BASE_URL}/api/assignments/stats`);
+      assert.strictEqual(res.status, 200);
+      body = await res.json();
+      assert.deepStrictEqual(body.data, {
+        total: 0,
+        pending: 0,
+        inProgress: 0,
+        completed: 0,
+        overdue: 0,
+        upcoming: 0,
+        completionPercentage: 0,
+      });
 
-    // GET /api/subjects
-    res = await fetch(`${BASE_URL}/api/subjects`);
-    assert.strictEqual(res.status, 200);
-    body = await res.json();
-    assert.deepStrictEqual(body.data, []);
-
-    // Restore original data for remaining tests
-    await fs.writeFile(DATA_FILE, originalData, "utf-8");
+      // GET /api/subjects
+      res = await fetch(`${BASE_URL}/api/subjects`);
+      assert.strictEqual(res.status, 200);
+      body = await res.json();
+      assert.deepStrictEqual(body.data, []);
+    } finally {
+      // Guarantee original data is restored even if an assertion fails
+      await fs.writeFile(DATA_FILE, originalData, "utf-8");
+    }
   });
 
   // 14. Unique, alphabetically sorted subjects
